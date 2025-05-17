@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export type FileType = {
   id: string;
@@ -307,46 +309,104 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // Add a function to download a folder as a zip
-  const downloadFolder = (folder: FileType) => {
-    if (folder.type !== 'folder') {
-      addTerminalMessage(`Cannot download ${folder.name}: Not a folder`);
-      return;
-    }
+  // const downloadFolder = (folder: FileType) => {
+  //   if (folder.type !== 'folder') {
+  //     addTerminalMessage(`Cannot download ${folder.name}: Not a folder`);
+  //     return;
+  //   }
     
-    // In a real application, you'd use a library like JSZip to create a zip file
-    // For this demo, we'll just create a text representation
-    let folderContent = `Folder: ${folder.name}\n`;
+  //   // In a real application, you'd use a library like JSZip to create a zip file
+  //   // For this demo, we'll just create a text representation
+  //   let folderContent = `Folder: ${folder.name}\n`;
     
-    const addFilesToContent = (nodes: FileType[] | undefined, indent: string = '') => {
-      if (!nodes) return;
+  //   const addFilesToContent = (nodes: FileType[] | undefined, indent: string = '') => {
+  //     if (!nodes) return;
       
-      for (const node of nodes) {
+  //     for (const node of nodes) {
+  //       if (node.type === 'folder') {
+  //         folderContent += `${indent}Folder: ${node.name}\n`;
+  //         addFilesToContent(node.children, indent + '  ');
+  //       } else {
+  //         folderContent += `${indent}File: ${node.name}.${node.extension || ''}\n`;
+  //         if (node.content) {
+  //           folderContent += `${indent}Content: ${node.content.substring(0, 50)}...\n`;
+  //         }
+  //       }
+  //     }
+  //   };
+    
+  //   addFilesToContent(folder.children);
+    
+  //   const blob = new Blob([folderContent], { type: 'text/plain' });
+  //   const url = URL.createObjectURL(blob);
+  //   const a = document.createElement('a');
+  //   a.href = url;
+  //   a.download = `${folder.name}.txt`; // In a real app, this would be .zip
+  //   document.body.appendChild(a);
+  //   a.click();
+  //   document.body.removeChild(a);
+  //   URL.revokeObjectURL(url);
+    
+  //   addTerminalMessage(`Downloaded folder: ${folder.name}`);
+  // };
+  const downloadFolder = async (folder: FileType) => {
+  if (folder.type !== 'folder') {
+    addTerminalMessage(`Cannot download ${folder.name}: Not a folder`);
+    return;
+  }
+
+  const zip = new JSZip();
+  let hasErrors = false;
+
+  // Helper function to add files recursively
+  const addFilesToZip = async (nodes: FileType[] | undefined, path: string = '') => {
+    if (!nodes) return;
+
+    for (const node of nodes) {
+      try {
+        const currentPath = path ? `${path}/${node.name}` : node.name;
+
         if (node.type === 'folder') {
-          folderContent += `${indent}Folder: ${node.name}\n`;
-          addFilesToContent(node.children, indent + '  ');
+          zip.folder(currentPath);
+          await addFilesToZip(node.children, currentPath);
         } else {
-          folderContent += `${indent}File: ${node.name}.${node.extension || ''}\n`;
-          if (node.content) {
-            folderContent += `${indent}Content: ${node.content.substring(0, 50)}...\n`;
-          }
+          // For files, add their content to the zip
+          const fileName = node.extension ? `${node.name}.${node.extension}` : node.name;
+          zip.file(`${currentPath}/${fileName}`, node.content || '');
         }
+      } catch (error) {
+        hasErrors = true;
+        addTerminalMessage(`Error processing ${node.name}: ${error.message}`);
       }
-    };
+    }
+  };
+
+  await addFilesToZip(folder.children);
+
+  if (hasErrors) {
+    addTerminalMessage(`Completed with errors - some files may be missing`);
+  }
+
+  try {
+    // Generate the zip file
+    const content = await zip.generateAsync({ type: 'blob' });
     
-    addFilesToContent(folder.children);
-    
-    const blob = new Blob([folderContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
+    // Create download link
+    const url = URL.createObjectURL(content);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${folder.name}.txt`; // In a real app, this would be .zip
+    a.download = `${folder.name}.zip`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
-    addTerminalMessage(`Downloaded folder: ${folder.name}`);
-  };
+
+    addTerminalMessage(`Successfully downloaded folder: ${folder.name}.zip`);
+  } catch (error) {
+    addTerminalMessage(`Failed to create zip file: ${error.message}`);
+  }
+};
+
   
   return (
     <FileSystemContext.Provider 
