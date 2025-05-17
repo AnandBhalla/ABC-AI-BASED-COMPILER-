@@ -22,40 +22,12 @@ interface FileSystemContextType {
   toggleFolder: (id: string) => void;
   saveCurrentFile: () => void;
   currentDirectory: string;
+  deleteFile: (id: string) => void;
+  deleteFolder: (id: string) => void;
 }
 
-const initialFiles: FileType[] = [
-  {
-    id: 'root',
-    name: 'Project',
-    type: 'folder',
-    expanded: true,
-    children: [
-      {
-        id: 'src',
-        name: 'src',
-        type: 'folder',
-        expanded: true,
-        children: [
-          { id: 'main', name: 'main', type: 'file', extension: 'cpp', content: '#include <iostream>\n\nint main() {\n  std::cout << "Hello, World!" << std::endl;\n  return 0;\n}' },
-          { id: 'utils', name: 'utils', type: 'file', extension: 'cpp', content: '// Utility functions' },
-          { id: 'header', name: 'header', type: 'file', extension: 'h', content: '// Header file' },
-        ],
-      },
-      {
-        id: 'lib',
-        name: 'lib',
-        type: 'folder',
-        expanded: false,
-        children: [
-          { id: 'helper', name: 'helper', type: 'file', extension: 'cpp', content: '// Helper functions' },
-          { id: 'math', name: 'math', type: 'file', extension: 'cpp', content: '// Math utilities' },
-        ],
-      },
-      { id: 'readme', name: 'README', type: 'file', extension: 'md', content: '# Project\nThis is a sample project.' },
-    ],
-  },
-];
+// Starting with an empty file system
+const initialFiles: FileType[] = [];
 
 const FileSystemContext = createContext<FileSystemContextType>({
   files: initialFiles,
@@ -67,6 +39,8 @@ const FileSystemContext = createContext<FileSystemContextType>({
   toggleFolder: () => {},
   saveCurrentFile: () => {},
   currentDirectory: 'project',
+  deleteFile: () => {},
+  deleteFolder: () => {},
 });
 
 export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -97,6 +71,18 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         };
       }
       return node;
+    });
+  };
+
+  const removeNode = (nodes: FileType[], id: string): FileType[] => {
+    return nodes.filter(node => {
+      if (node.id === id) {
+        return false;
+      }
+      if (node.children) {
+        node.children = removeNode(node.children, id);
+      }
+      return true;
     });
   };
 
@@ -205,6 +191,39 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const deleteFile = (id: string) => {
+    // If active file is being deleted, clear it
+    if (activeFile && activeFile.id === id) {
+      setActiveFile(null);
+    }
+    
+    setFiles(currentFiles => removeNode(currentFiles, id));
+  };
+
+  const deleteFolder = (id: string) => {
+    // If active file is inside the folder being deleted, clear it
+    const folderToDelete = findNodeById(files, id);
+    if (folderToDelete && folderToDelete.type === 'folder' && activeFile) {
+      const checkIfActiveFileInFolder = (nodes: FileType[] | undefined): boolean => {
+        if (!nodes) return false;
+        
+        for (const node of nodes) {
+          if (node.id === activeFile.id) return true;
+          if (node.children) {
+            if (checkIfActiveFileInFolder(node.children)) return true;
+          }
+        }
+        return false;
+      };
+      
+      if (checkIfActiveFileInFolder(folderToDelete.children)) {
+        setActiveFile(null);
+      }
+    }
+    
+    setFiles(currentFiles => removeNode(currentFiles, id));
+  };
+
   const saveCurrentFile = () => {
     if (!activeFile || activeFile.type !== 'file') return;
     
@@ -230,7 +249,9 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         updateFileContent, 
         toggleFolder,
         saveCurrentFile,
-        currentDirectory
+        currentDirectory,
+        deleteFile,
+        deleteFolder
       }}
     >
       {children}

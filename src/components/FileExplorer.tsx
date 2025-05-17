@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Folder, FileCode, Plus, FolderPlus, FilePlus, Save } from 'lucide-react';
+import { Folder, FileCode, Plus, FolderPlus, FilePlus, Save, Trash2 } from 'lucide-react';
 import { useFileSystem, FileType } from '@/context/FileSystemContext';
 import { Button } from '@/components/ui/button';
 import { 
@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
-  const { toggleFolder, setActiveFile } = useFileSystem();
+  const { toggleFolder, setActiveFile, deleteFile, deleteFolder } = useFileSystem();
   const isFolder = file.type === 'folder';
+  const [isHovered, setIsHovered] = useState(false);
   
   const handleClick = () => {
     if (isFolder) {
@@ -21,22 +22,65 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
       setActiveFile(file);
     }
   };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isFolder) {
+      deleteFolder(file.id);
+    } else {
+      deleteFile(file.id);
+    }
+  };
+
+  const handleAddFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // We'll reuse the existing modal for adding files
+    // Just passing the folder id to create files inside it
+    handleCreateItem(file.id, 'file');
+  };
   
   return (
     <div>
       <div 
-        className={`flex items-center py-1 px-2 hover:bg-muted/50 rounded cursor-pointer animate-slide-in`}
+        className={`flex items-center py-1 px-2 hover:bg-muted/50 rounded cursor-pointer animate-slide-in group relative`}
         style={{ paddingLeft: `${depth * 16 + 8}px`, animationDelay: `${depth * 0.05}s` }}
         onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         {isFolder ? (
           <Folder size={16} className="mr-2 text-secondary" />
         ) : (
           <FileCode size={16} className="mr-2 text-muted-foreground" />
         )}
-        <span className="text-sm truncate">
+        <span className="text-sm truncate flex-1">
           {file.name}{file.extension ? `.${file.extension}` : ''}
         </span>
+
+        {isHovered && (
+          <div className="flex items-center gap-1">
+            {isFolder && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={handleAddFile}
+                title="Add file to folder"
+              >
+                <FilePlus size={14} />
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={handleDelete}
+              title={`Delete ${isFolder ? 'folder' : 'file'}`}
+            >
+              <Trash2 size={14} className="text-destructive" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {isFolder && file.expanded && file.children && (
@@ -87,30 +131,55 @@ const FileExplorer = () => {
       <div className="mb-2 p-2 flex justify-between items-center">
         <span className="text-sm font-semibold text-muted-foreground">EXPLORER</span>
         <div className="flex gap-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
-                <Plus size={14} />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleCreateItem('root', 'file')}>
-                <FilePlus className="mr-2" size={14} />
-                <span>New File</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCreateItem('root', 'folder')}>
-                <FolderPlus className="mr-2" size={14} />
-                <span>New Folder</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6" 
+            onClick={() => handleCreateItem('root', 'file')}
+            title="New File"
+          >
+            <FilePlus size={14} />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={() => handleCreateItem('root', 'folder')}
+            title="New Folder"
+          >
+            <FolderPlus size={14} />
+          </Button>
         </div>
       </div>
 
       <div className="overflow-auto max-h-[calc(100%-40px)]">
-        {files.map((file) => (
-          <FileItem key={file.id} file={file} />
-        ))}
+        {files.length > 0 ? (
+          files.map((file) => <FileItem key={file.id} file={file} />)
+        ) : (
+          <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+            <p className="text-sm mb-2">No files yet</p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleCreateItem('root', 'file')}
+                className="flex items-center gap-1"
+              >
+                <FilePlus size={14} />
+                <span>New File</span>
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handleCreateItem('root', 'folder')}
+                className="flex items-center gap-1"
+              >
+                <FolderPlus size={14} />
+                <span>New Folder</span>
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {showNewItemDialog && (
