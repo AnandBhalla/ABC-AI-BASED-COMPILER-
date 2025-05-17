@@ -18,6 +18,7 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
   const isFolder = file.type === 'folder';
   const [isHovered, setIsHovered] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
+  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   
   const handleClick = () => {
     if (isFolder) {
@@ -40,6 +41,11 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
   const handleAddFile = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowNewFileModal(true);
+  };
+
+  const handleAddFolder = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowNewFolderModal(true);
   };
 
   const handleDownload = (e: React.MouseEvent) => {
@@ -72,15 +78,26 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
         {isHovered && (
           <div className="flex items-center gap-1">
             {isFolder && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={handleAddFile}
-                title="Add file to folder"
-              >
-                <FilePlus size={14} />
-              </Button>
+              <>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={handleAddFile}
+                  title="Add file to folder"
+                >
+                  <FilePlus size={14} />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={handleAddFolder}
+                  title="Add subfolder"
+                >
+                  <FolderPlus size={14} />
+                </Button>
+              </>
             )}
             <Button 
               variant="ghost" 
@@ -110,6 +127,15 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
           onClose={() => setShowNewFileModal(false)}
           parentId={file.id}
           isFolder={false}
+        />
+      )}
+
+      {showNewFolderModal && (
+        <NewItemDialog 
+          isOpen={showNewFolderModal}
+          onClose={() => setShowNewFolderModal(false)}
+          parentId={file.id}
+          isFolder={true}
         />
       )}
 
