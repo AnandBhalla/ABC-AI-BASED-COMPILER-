@@ -51,7 +51,18 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
       downloadFile(file);
     }
   };
-  
+  const FileExplorer = () => {
+  const { files, addTerminalMessage } = useFileSystem();
+  const [showNewFileDialog, setShowNewFileDialog] = useState(false);
+  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
+
+  const handleNewFile = () => {
+    setShowNewFileDialog(true);
+  };
+  const handleNewFolder = () => {
+    setShowNewFolderDialog(true);
+  };
+
   return (
     <div>
       <div 
@@ -83,6 +94,15 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
                 <FilePlus size={14} />
               </Button>
             )}
+            <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-6 w-6"
+            onClick={handleNewFolder}
+            title="New Folder"
+          >
+            <FolderPlus size={14} />
+          </Button>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -195,18 +215,9 @@ const NewItemDialog = ({
   );
 };
 
-const FileExplorer = () => {
-  const { files, addTerminalMessage } = useFileSystem();
-  const [showNewFileDialog, setShowNewFileDialog] = useState(false);
-  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
 
-  const handleNewFile = () => {
-    setShowNewFileDialog(true);
-  };
 
-  const handleNewFolder = () => {
-    setShowNewFolderDialog(true);
-  };
+  
 
   return (
     <div className="file-explorer h-full">
