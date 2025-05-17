@@ -225,7 +225,7 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ...activeFile,
         content
       });
-      addTerminalMessage(`Updated file: ${activeFile.name}.${activeFile.extension || ''}`);
+      // addTerminalMessage(`Updated file: ${activeFile.name}.${activeFile.extension || ''}`);
     }
   };
 
