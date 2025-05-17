@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Folder, FileCode, FolderPlus, FilePlus, Trash2, Download } from 'lucide-react';
 import { useFileSystem, FileType } from '@/context/FileSystemContext';
@@ -51,17 +50,6 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
       downloadFile(file);
     }
   };
-  const FileExplorer = () => {
-  const { files, addTerminalMessage } = useFileSystem();
-  const [showNewFileDialog, setShowNewFileDialog] = useState(false);
-  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
-
-  const handleNewFile = () => {
-    setShowNewFileDialog(true);
-  };
-  const handleNewFolder = () => {
-    setShowNewFolderDialog(true);
-  };
 
   return (
     <div>
@@ -94,15 +82,6 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
                 <FilePlus size={14} />
               </Button>
             )}
-            <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-6 w-6"
-            onClick={handleNewFolder}
-            title="New Folder"
-          >
-            <FolderPlus size={14} />
-          </Button>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -169,7 +148,6 @@ const NewItemDialog = ({
     if (isFolder) {
       createFolder(parentId, newItemName);
     } else {
-      // Extract file name and extension from the input
       const lastDotIndex = newItemName.lastIndexOf('.');
       const hasExtension = lastDotIndex > 0;
       
@@ -215,9 +193,18 @@ const NewItemDialog = ({
   );
 };
 
+const FileExplorer = () => {
+  const { files, addTerminalMessage } = useFileSystem();
+  const [showNewFileDialog, setShowNewFileDialog] = useState(false);
+  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
 
+  const handleNewFile = () => {
+    setShowNewFileDialog(true);
+  };
 
-  
+  const handleNewFolder = () => {
+    setShowNewFolderDialog(true);
+  };
 
   return (
     <div className="file-explorer h-full">
@@ -275,7 +262,6 @@ const NewItemDialog = ({
         )}
       </div>
 
-      {/* Modal for creating a new file */}
       <NewItemDialog
         isOpen={showNewFileDialog}
         onClose={() => setShowNewFileDialog(false)}
@@ -283,7 +269,6 @@ const NewItemDialog = ({
         isFolder={false}
       />
 
-      {/* Modal for creating a new folder */}
       <NewItemDialog
         isOpen={showNewFolderDialog}
         onClose={() => setShowNewFolderDialog(false)}
