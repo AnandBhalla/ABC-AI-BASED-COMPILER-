@@ -308,48 +308,8 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     addTerminalMessage(`Downloaded file: ${file.name}.${file.extension || ''}`);
   };
 
-  // Add a function to download a folder as a zip
-  // const downloadFolder = (folder: FileType) => {
-  //   if (folder.type !== 'folder') {
-  //     addTerminalMessage(`Cannot download ${folder.name}: Not a folder`);
-  //     return;
-  //   }
-    
-  //   // In a real application, you'd use a library like JSZip to create a zip file
-  //   // For this demo, we'll just create a text representation
-  //   let folderContent = `Folder: ${folder.name}\n`;
-    
-  //   const addFilesToContent = (nodes: FileType[] | undefined, indent: string = '') => {
-  //     if (!nodes) return;
-      
-  //     for (const node of nodes) {
-  //       if (node.type === 'folder') {
-  //         folderContent += `${indent}Folder: ${node.name}\n`;
-  //         addFilesToContent(node.children, indent + '  ');
-  //       } else {
-  //         folderContent += `${indent}File: ${node.name}.${node.extension || ''}\n`;
-  //         if (node.content) {
-  //           folderContent += `${indent}Content: ${node.content.substring(0, 50)}...\n`;
-  //         }
-  //       }
-  //     }
-  //   };
-    
-  //   addFilesToContent(folder.children);
-    
-  //   const blob = new Blob([folderContent], { type: 'text/plain' });
-  //   const url = URL.createObjectURL(blob);
-  //   const a = document.createElement('a');
-  //   a.href = url;
-  //   a.download = `${folder.name}.txt`; // In a real app, this would be .zip
-  //   document.body.appendChild(a);
-  //   a.click();
-  //   document.body.removeChild(a);
-  //   URL.revokeObjectURL(url);
-    
-  //   addTerminalMessage(`Downloaded folder: ${folder.name}`);
-  // };
-  const downloadFolder = async (folder: FileType) => {
+
+ const downloadFolder = async (folder: FileType) => {
   if (folder.type !== 'folder') {
     addTerminalMessage(`Cannot download ${folder.name}: Not a folder`);
     return;
@@ -364,19 +324,23 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     for (const node of nodes) {
       try {
-        const currentPath = path ? `${path}/${node.name}` : node.name;
+        const currentPath = path ? `${path}/` : ''; // Add trailing slash for folders
 
         if (node.type === 'folder') {
-          zip.folder(currentPath);
-          await addFilesToZip(node.children, currentPath);
+          // Create folder and add its contents
+          const folder = zip.folder(node.name);
+          if (folder && node.children) {
+            await addFilesToZip(node.children, `${currentPath}${node.name}`);
+          }
         } else {
           // For files, add their content to the zip
           const fileName = node.extension ? `${node.name}.${node.extension}` : node.name;
-          zip.file(`${currentPath}/${fileName}`, node.content || '');
+          const filePath = `${currentPath}${fileName}`;
+          zip.file(filePath, node.content || '');
         }
       } catch (error) {
         hasErrors = true;
-        addTerminalMessage(`Error processing ${node.name}: ${error.message}`);
+        addTerminalMessage(`Error processing ${node.name}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
   };
@@ -388,22 +352,22 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }
 
   try {
-    // Generate the zip file
-    const content = await zip.generateAsync({ type: 'blob' });
+    // Generate the zip file with progress updates
+    const content = await zip.generateAsync(
+      { type: 'blob' },
+      (metadata) => {
+        const progress = Math.round(metadata.percent);
+        if (progress % 10 === 0) { // Update every 10% to avoid spamming
+          addTerminalMessage(`Compressing... ${progress}%`);
+        }
+      }
+    );
     
-    // Create download link
-    const url = URL.createObjectURL(content);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${folder.name}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
+    // Use FileSaver.js for better cross-browser support
+    saveAs(content, `${folder.name}.zip`);
     addTerminalMessage(`Successfully downloaded folder: ${folder.name}.zip`);
   } catch (error) {
-    addTerminalMessage(`Failed to create zip file: ${error.message}`);
+    addTerminalMessage(`Failed to create zip file: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
