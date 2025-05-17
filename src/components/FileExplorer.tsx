@@ -4,16 +4,21 @@ import { Folder, FileCode, Plus, FolderPlus, FilePlus, Save, Trash2 } from 'luci
 import { useFileSystem, FileType } from '@/context/FileSystemContext';
 import { Button } from '@/components/ui/button';
 import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
   const { toggleFolder, setActiveFile, deleteFile, deleteFolder } = useFileSystem();
   const isFolder = file.type === 'folder';
   const [isHovered, setIsHovered] = useState(false);
+  const [showNewFileModal, setShowNewFileModal] = useState(false);
   
   const handleClick = () => {
     if (isFolder) {
@@ -34,9 +39,7 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
 
   const handleAddFile = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // We'll reuse the existing modal for adding files
-    // Just passing the folder id to create files inside it
-    handleCreateItem(file.id, 'file');
+    setShowNewFileModal(true);
   };
   
   return (
@@ -83,6 +86,15 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
         )}
       </div>
 
+      {showNewFileModal && (
+        <NewItemDialog 
+          isOpen={showNewFileModal}
+          onClose={() => setShowNewFileModal(false)}
+          parentId={file.id}
+          isFolder={false}
+        />
+      )}
+
       {isFolder && file.expanded && file.children && (
         <div>
           {file.children.map((child) => (
@@ -98,33 +110,76 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
   );
 };
 
-const FileExplorer = () => {
-  const { files, createFolder, createFile } = useFileSystem();
-  const [newItemParent, setNewItemParent] = useState<string | null>(null);
+const NewItemDialog = ({ 
+  isOpen, 
+  onClose, 
+  parentId, 
+  isFolder 
+}: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  parentId: string | null; 
+  isFolder: boolean;
+}) => {
+  const { createFolder, createFile } = useFileSystem();
   const [newItemName, setNewItemName] = useState('');
-  const [newItemType, setNewItemType] = useState<'file' | 'folder'>('file');
-  const [newFileExtension, setNewFileExtension] = useState('');
-  const [showNewItemDialog, setShowNewItemDialog] = useState(false);
-
-  const handleCreateItem = (parentId: string | null, type: 'file' | 'folder') => {
-    setNewItemParent(parentId);
-    setNewItemType(type);
-    setShowNewItemDialog(true);
-  };
-
-  const handleCreateConfirm = () => {
+  
+  const handleSubmit = () => {
     if (!newItemName) return;
-
-    if (newItemType === 'folder') {
-      createFolder(newItemParent, newItemName);
+    
+    if (isFolder) {
+      createFolder(parentId, newItemName);
     } else {
-      createFile(newItemParent, newItemName, newFileExtension || 'txt');
+      // Extract file name and extension from the input
+      const lastDotIndex = newItemName.lastIndexOf('.');
+      const hasExtension = lastDotIndex > 0;
+      
+      const fileName = hasExtension ? newItemName.substring(0, lastDotIndex) : newItemName;
+      const fileExtension = hasExtension ? newItemName.substring(lastDotIndex + 1) : 'txt';
+      
+      createFile(parentId, fileName, fileExtension);
     }
-
+    
     setNewItemName('');
-    setNewFileExtension('');
-    setShowNewItemDialog(false);
+    onClose();
   };
+  
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            Create New {isFolder ? 'Folder' : 'File'}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {isFolder 
+              ? "Enter a name for the new folder." 
+              : "Enter a name with extension for the new file (e.g., script.js)."}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="py-4">
+          <input
+            type="text"
+            value={newItemName}
+            onChange={(e) => setNewItemName(e.target.value)}
+            className="w-full p-2 bg-muted rounded border border-border"
+            placeholder={isFolder ? "folder-name" : "file-name.ext"}
+            autoFocus
+          />
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={onClose}>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleSubmit}>Create</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+};
+
+const FileExplorer = () => {
+  const { files } = useFileSystem();
+  const [showNewFileDialog, setShowNewFileDialog] = useState(false);
+  const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
 
   return (
     <div className="file-explorer h-full">
@@ -135,7 +190,7 @@ const FileExplorer = () => {
             variant="ghost" 
             size="icon" 
             className="h-6 w-6" 
-            onClick={() => handleCreateItem('root', 'file')}
+            onClick={() => setShowNewFileDialog(true)}
             title="New File"
           >
             <FilePlus size={14} />
@@ -144,7 +199,7 @@ const FileExplorer = () => {
             variant="ghost" 
             size="icon" 
             className="h-6 w-6"
-            onClick={() => handleCreateItem('root', 'folder')}
+            onClick={() => setShowNewFolderDialog(true)}
             title="New Folder"
           >
             <FolderPlus size={14} />
@@ -162,7 +217,7 @@ const FileExplorer = () => {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => handleCreateItem('root', 'file')}
+                onClick={() => setShowNewFileDialog(true)}
                 className="flex items-center gap-1"
               >
                 <FilePlus size={14} />
@@ -171,7 +226,7 @@ const FileExplorer = () => {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => handleCreateItem('root', 'folder')}
+                onClick={() => setShowNewFolderDialog(true)}
                 className="flex items-center gap-1"
               >
                 <FolderPlus size={14} />
@@ -182,49 +237,21 @@ const FileExplorer = () => {
         )}
       </div>
 
-      {showNewItemDialog && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/50 z-50">
-          <div className="bg-background p-4 rounded-md shadow-lg w-80">
-            <h3 className="font-semibold mb-4">
-              Create New {newItemType === 'folder' ? 'Folder' : 'File'}
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm mb-1">Name</label>
-                <input
-                  type="text"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  className="w-full p-2 bg-muted rounded border border-border"
-                  autoFocus
-                />
-              </div>
-              
-              {newItemType === 'file' && (
-                <div>
-                  <label className="block text-sm mb-1">Extension</label>
-                  <input
-                    type="text"
-                    value={newFileExtension}
-                    onChange={(e) => setNewFileExtension(e.target.value)}
-                    className="w-full p-2 bg-muted rounded border border-border"
-                    placeholder="cpp, js, txt..."
-                  />
-                </div>
-              )}
+      {/* Modal for creating a new file */}
+      <NewItemDialog
+        isOpen={showNewFileDialog}
+        onClose={() => setShowNewFileDialog(false)}
+        parentId={null}
+        isFolder={false}
+      />
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowNewItemDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateConfirm}>
-                  Create
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal for creating a new folder */}
+      <NewItemDialog
+        isOpen={showNewFolderDialog}
+        onClose={() => setShowNewFolderDialog(false)}
+        parentId={null}
+        isFolder={true}
+      />
     </div>
   );
 };
