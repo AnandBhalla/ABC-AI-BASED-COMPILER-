@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Folder, FileCode, Plus, FolderPlus, FilePlus, Save, Trash2 } from 'lucide-react';
+import { Folder, FileCode, FolderPlus, FilePlus, Trash2, Download } from 'lucide-react';
 import { useFileSystem, FileType } from '@/context/FileSystemContext';
 import { Button } from '@/components/ui/button';
 import { 
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
-  const { toggleFolder, setActiveFile, deleteFile, deleteFolder } = useFileSystem();
+  const { toggleFolder, setActiveFile, deleteFile, deleteFolder, downloadFile, downloadFolder, addTerminalMessage } = useFileSystem();
   const isFolder = file.type === 'folder';
   const [isHovered, setIsHovered] = useState(false);
   const [showNewFileModal, setShowNewFileModal] = useState(false);
@@ -25,6 +25,7 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
       toggleFolder(file.id);
     } else {
       setActiveFile(file);
+      addTerminalMessage(`Opened file: ${file.name}.${file.extension || ''}`);
     }
   };
 
@@ -40,6 +41,15 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
   const handleAddFile = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowNewFileModal(true);
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isFolder) {
+      downloadFolder(file);
+    } else {
+      downloadFile(file);
+    }
   };
   
   return (
@@ -73,6 +83,15 @@ const FileItem = ({ file, depth = 0 }: { file: FileType; depth?: number }) => {
                 <FilePlus size={14} />
               </Button>
             )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={handleDownload}
+              title={`Download ${isFolder ? 'folder' : 'file'}`}
+            >
+              <Download size={14} />
+            </Button>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -177,9 +196,17 @@ const NewItemDialog = ({
 };
 
 const FileExplorer = () => {
-  const { files } = useFileSystem();
+  const { files, addTerminalMessage } = useFileSystem();
   const [showNewFileDialog, setShowNewFileDialog] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
+
+  const handleNewFile = () => {
+    setShowNewFileDialog(true);
+  };
+
+  const handleNewFolder = () => {
+    setShowNewFolderDialog(true);
+  };
 
   return (
     <div className="file-explorer h-full">
@@ -190,7 +217,7 @@ const FileExplorer = () => {
             variant="ghost" 
             size="icon" 
             className="h-6 w-6" 
-            onClick={() => setShowNewFileDialog(true)}
+            onClick={handleNewFile}
             title="New File"
           >
             <FilePlus size={14} />
@@ -199,7 +226,7 @@ const FileExplorer = () => {
             variant="ghost" 
             size="icon" 
             className="h-6 w-6"
-            onClick={() => setShowNewFolderDialog(true)}
+            onClick={handleNewFolder}
             title="New Folder"
           >
             <FolderPlus size={14} />

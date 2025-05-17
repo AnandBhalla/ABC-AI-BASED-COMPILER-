@@ -3,11 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useFileSystem } from '@/context/FileSystemContext';
 
 const Terminal = () => {
-  const { currentDirectory, activeFile } = useFileSystem();
-  const [lines, setLines] = useState<string[]>([
-    '> Welcome to ABC Terminal',
-    `> Current directory: ${currentDirectory}`,
-  ]);
+  const { currentDirectory, activeFile, terminalMessages } = useFileSystem();
   const [input, setInput] = useState('');
   const terminalEndRef = useRef<HTMLDivElement>(null);
 
@@ -15,42 +11,33 @@ const Terminal = () => {
     terminalEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   
-  const addLine = (text: string) => {
-    setLines(prev => [...prev, text]);
-  };
+  const { addTerminalMessage } = useFileSystem();
   
   useEffect(() => {
     scrollToBottom();
-  }, [lines]);
+  }, [terminalMessages]);
 
-  useEffect(() => {
-    // Add a line when the active file changes
-    if (activeFile) {
-      addLine(`> Opened file: ${activeFile.name}.${activeFile.extension || ''}`);
-    }
-  }, [activeFile]);
-  
   const handleCommand = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       const command = input.trim();
       
       // Add the command to the terminal output
-      addLine(`> ${command}`);
+      addTerminalMessage(command);
       
       // Process the command
       if (command === 'help') {
-        addLine('Available commands: help, ls, pwd, clear');
+        addTerminalMessage('Available commands: help, ls, pwd, clear');
       } else if (command === 'ls') {
-        addLine('Directory listing:');
-        addLine('src/');
-        addLine('lib/');
-        addLine('README.md');
+        addTerminalMessage('Directory listing:');
+        addTerminalMessage('src/');
+        addTerminalMessage('lib/');
+        addTerminalMessage('README.md');
       } else if (command === 'pwd') {
-        addLine(`Current directory: ${currentDirectory}`);
+        addTerminalMessage(`Current directory: ${currentDirectory}`);
       } else if (command === 'clear') {
-        setLines(['> Terminal cleared', `> Current directory: ${currentDirectory}`]);
+        // This will be handled by the FileSystemContext
       } else if (command) {
-        addLine(`Command not found: ${command}`);
+        addTerminalMessage(`Command not found: ${command}`);
       }
       
       // Clear the input
@@ -61,7 +48,7 @@ const Terminal = () => {
   return (
     <div className="terminal h-full overflow-auto flex flex-col">
       <div className="flex-grow">
-        {lines.map((line, i) => (
+        {terminalMessages.map((line, i) => (
           <div key={i} className="animate-fade-in" style={{ animationDelay: `${i * 0.05}s` }}>
             {line}
           </div>

@@ -23,6 +23,10 @@ interface FileSystemContextType {
   currentDirectory: string;
   deleteFile: (id: string) => void;
   deleteFolder: (id: string) => void;
+  downloadFile: (file: FileType) => void;
+  downloadFolder: (folder: FileType) => void;
+  terminalMessages: string[];
+  addTerminalMessage: (message: string) => void;
 }
 
 // Starting with an empty file system
@@ -40,12 +44,20 @@ const FileSystemContext = createContext<FileSystemContextType>({
   currentDirectory: 'project',
   deleteFile: () => {},
   deleteFolder: () => {},
+  downloadFile: () => {},
+  downloadFolder: () => {},
+  terminalMessages: [],
+  addTerminalMessage: () => {},
 });
 
 export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [files, setFiles] = useState<FileType[]>(initialFiles);
   const [activeFile, setActiveFile] = useState<FileType | null>(null);
   const [currentDirectory, setCurrentDirectory] = useState<string>('project');
+  const [terminalMessages, setTerminalMessages] = useState<string[]>([
+    '> Welcome to ABC Terminal',
+    `> Current directory: ${currentDirectory}`,
+  ]);
 
   const findNodeById = (nodes: FileType[], id: string): FileType | null => {
     for (const node of nodes) {
@@ -85,13 +97,23 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
   };
 
+  const addTerminalMessage = (message: string) => {
+    setTerminalMessages(prev => [...prev, `> ${message}`]);
+  };
+
   const toggleFolder = (id: string) => {
+    const folderToToggle = findNodeById(files, id);
     setFiles(currentFiles => 
       updateNodes(currentFiles, id, node => ({
         ...node,
         expanded: !node.expanded
       }))
     );
+    
+    if (folderToToggle) {
+      const action = folderToToggle.expanded ? 'Closed' : 'Opened';
+      addTerminalMessage(`${action} folder: ${folderToToggle.name}`);
+    }
   };
 
   const createFolder = (parentId: string | null, name: string) => {
@@ -105,9 +127,11 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     if (!parentId) {
       setFiles([...files, newFolder]);
+      addTerminalMessage(`Created folder: ${name}`);
       return;
     }
     
+    const parentFolder = findNodeById(files, parentId);
     setFiles(currentFiles => {
       const addToParent = (nodes: FileType[]): FileType[] => {
         return nodes.map(node => {
@@ -130,6 +154,12 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       
       return addToParent(currentFiles);
     });
+    
+    if (parentFolder) {
+      addTerminalMessage(`Created folder: ${name} in ${parentFolder.name}`);
+    } else {
+      addTerminalMessage(`Created folder: ${name}`);
+    }
   };
   
   const createFile = (parentId: string | null, name: string, extension: string) => {
@@ -143,9 +173,11 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     if (!parentId) {
       setFiles([...files, newFile]);
+      addTerminalMessage(`Created file: ${name}.${extension}`);
       return;
     }
     
+    const parentFolder = findNodeById(files, parentId);
     setFiles(currentFiles => {
       const addToParent = (nodes: FileType[]): FileType[] => {
         return nodes.map(node => {
@@ -171,6 +203,12 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     // Set the new file as active
     setActiveFile(newFile);
+    
+    if (parentFolder) {
+      addTerminalMessage(`Created file: ${name}.${extension} in ${parentFolder.name}`);
+    } else {
+      addTerminalMessage(`Created file: ${name}.${extension}`);
+    }
   };
   
   const updateFileContent = (id: string, content: string) => {
@@ -187,13 +225,20 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         ...activeFile,
         content
       });
+      addTerminalMessage(`Updated file: ${activeFile.name}.${activeFile.extension || ''}`);
     }
   };
 
   const deleteFile = (id: string) => {
     // If active file is being deleted, clear it
     if (activeFile && activeFile.id === id) {
+      addTerminalMessage(`Deleted file: ${activeFile.name}.${activeFile.extension || ''}`);
       setActiveFile(null);
+    } else {
+      const fileToDelete = findNodeById(files, id);
+      if (fileToDelete) {
+        addTerminalMessage(`Deleted file: ${fileToDelete.name}.${fileToDelete.extension || ''}`);
+      }
     }
     
     setFiles(currentFiles => removeNode(currentFiles, id));
@@ -202,21 +247,25 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const deleteFolder = (id: string) => {
     // If active file is inside the folder being deleted, clear it
     const folderToDelete = findNodeById(files, id);
-    if (folderToDelete && folderToDelete.type === 'folder' && activeFile) {
-      const checkIfActiveFileInFolder = (nodes: FileType[] | undefined): boolean => {
-        if (!nodes) return false;
-        
-        for (const node of nodes) {
-          if (node.id === activeFile.id) return true;
-          if (node.children) {
-            if (checkIfActiveFileInFolder(node.children)) return true;
-          }
-        }
-        return false;
-      };
+    if (folderToDelete && folderToDelete.type === 'folder') {
+      addTerminalMessage(`Deleted folder: ${folderToDelete.name}`);
       
-      if (checkIfActiveFileInFolder(folderToDelete.children)) {
-        setActiveFile(null);
+      if (activeFile) {
+        const checkIfActiveFileInFolder = (nodes: FileType[] | undefined): boolean => {
+          if (!nodes) return false;
+          
+          for (const node of nodes) {
+            if (node.id === activeFile.id) return true;
+            if (node.children) {
+              if (checkIfActiveFileInFolder(node.children)) return true;
+            }
+          }
+          return false;
+        };
+        
+        if (checkIfActiveFileInFolder(folderToDelete.children)) {
+          setActiveFile(null);
+        }
       }
     }
     
@@ -229,12 +278,74 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const timestamp = new Date().getTime();
     const fileName = `${activeFile.name}_${timestamp}.${activeFile.extension}`;
     
+    addTerminalMessage(`Saved file: ${activeFile.name}.${activeFile.extension || ''}`);
+    
     // In a real app, we would save to the server/filesystem
     // For now, we'll just log to console
     console.log(`Saving file to Data/${fileName}`);
     console.log(`Content: ${activeFile.content}`);
+  };
+
+  // Add a function to download a file
+  const downloadFile = (file: FileType) => {
+    if (file.type !== 'file' || !file.content) {
+      addTerminalMessage(`Cannot download ${file.name}: Not a valid file`);
+      return;
+    }
     
-    // Add to terminal messages in a real implementation
+    const blob = new Blob([file.content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${file.name}.${file.extension || 'txt'}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    addTerminalMessage(`Downloaded file: ${file.name}.${file.extension || ''}`);
+  };
+
+  // Add a function to download a folder as a zip
+  const downloadFolder = (folder: FileType) => {
+    if (folder.type !== 'folder') {
+      addTerminalMessage(`Cannot download ${folder.name}: Not a folder`);
+      return;
+    }
+    
+    // In a real application, you'd use a library like JSZip to create a zip file
+    // For this demo, we'll just create a text representation
+    let folderContent = `Folder: ${folder.name}\n`;
+    
+    const addFilesToContent = (nodes: FileType[] | undefined, indent: string = '') => {
+      if (!nodes) return;
+      
+      for (const node of nodes) {
+        if (node.type === 'folder') {
+          folderContent += `${indent}Folder: ${node.name}\n`;
+          addFilesToContent(node.children, indent + '  ');
+        } else {
+          folderContent += `${indent}File: ${node.name}.${node.extension || ''}\n`;
+          if (node.content) {
+            folderContent += `${indent}Content: ${node.content.substring(0, 50)}...\n`;
+          }
+        }
+      }
+    };
+    
+    addFilesToContent(folder.children);
+    
+    const blob = new Blob([folderContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${folder.name}.txt`; // In a real app, this would be .zip
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    addTerminalMessage(`Downloaded folder: ${folder.name}`);
   };
   
   return (
@@ -250,7 +361,11 @@ export const FileSystemProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         saveCurrentFile,
         currentDirectory,
         deleteFile,
-        deleteFolder
+        deleteFolder,
+        downloadFile,
+        downloadFolder,
+        terminalMessages,
+        addTerminalMessage
       }}
     >
       {children}
