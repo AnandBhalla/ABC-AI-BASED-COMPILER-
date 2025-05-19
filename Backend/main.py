@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel
 import tempfile
@@ -8,29 +9,46 @@ import shutil
 
 class CodeRequest(BaseModel):
     code: str
-    language: str
+    filename: str  # Changed from 'language' to 'filename'
 
 app = FastAPI(title="Code Execution API")
+
+def get_language_from_filename(filename: str) -> str:
+    """Extract language from filename based on extension."""
+    extension_map = {
+        '.py': 'python',
+        '.c': 'c',
+        '.cpp': 'cpp',
+        '.java': 'java'
+    }
+    
+    # Get the file extension
+    _, ext = os.path.splitext(filename.lower())
+    
+    if ext not in extension_map:
+        raise ValueError(f"Unsupported file extension: {ext}")
+    
+    return extension_map[ext]
 
 @app.post("/execute")
 async def execute_code(request: CodeRequest = Body(...)):
     """
     Execute code in various programming languages and return the output.
     
-    Supported languages:
-    - python
-    - c
-    - cpp (C++)
-    - java
+    Supported file extensions:
+    - .py (Python)
+    - .c (C)
+    - .cpp (C++)
+    - .java (Java)
     """
-    language = request.language.lower()
-    code = request.code
-    
-    if language not in ["python", "c", "cpp", "java"]:
+    try:
+        language = get_language_from_filename(request.filename)
+    except ValueError as e:
         raise HTTPException(
             status_code=400, 
-            detail=f"Unsupported language: {language}. Supported languages are: python, c, cpp, java"
+            detail=str(e)
         )
+    code = request.code
     
     try:
         # Create a unique execution directory
