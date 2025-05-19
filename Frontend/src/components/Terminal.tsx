@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useFileSystem } from '@/context/FileSystemContext';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+const BACKEND_URL = import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:8000';
 
 const Terminal = () => {
   const { currentDirectory, activeFile, terminalMessages } = useFileSystem();
